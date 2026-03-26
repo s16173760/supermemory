@@ -183,7 +183,13 @@ export function useGraphData(
 		if (!normalizedDocs || normalizedDocs.length === 0) return []
 
 		const result: GraphEdge[] = []
-		const allNodeIds = new Set(nodes.map((n) => n.id))
+		// Build allNodeIds from normalizedDocs directly to avoid depending on `nodes`
+		// (which changes identity on every render due to draggingNodeId/colors deps)
+		const allNodeIds = new Set<string>()
+		for (const doc of normalizedDocs) {
+			allNodeIds.add(doc.id)
+			for (const mem of doc.memories) allNodeIds.add(mem.id)
+		}
 
 		for (const doc of normalizedDocs) {
 			for (const mem of doc.memories) {
@@ -229,7 +235,7 @@ export function useGraphData(
 		}
 
 		return result
-	}, [normalizedDocs, apiEdges, nodes])
+	}, [normalizedDocs, apiEdges])
 
 	return { nodes, edges, scale, offsetX, offsetY }
 }

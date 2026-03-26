@@ -58,8 +58,16 @@ export class SpatialIndex {
 	private computeHash(nodes: GraphNode[]): number {
 		let hash = nodes.length
 		for (const n of nodes) {
-			hash = (hash * 31 + (Math.round(n.x) | 0)) | 0
-			hash = (hash * 31 + (Math.round(n.y) | 0)) | 0
+			// Use finer granularity (10x) to detect sub-pixel movements
+			// and incorporate a simple string hash of the ID to avoid
+			// false matches when nodes swap positions
+			let idHash = 0
+			for (let i = 0; i < n.id.length; i++) {
+				idHash = ((idHash << 5) - idHash + n.id.charCodeAt(i)) | 0
+			}
+			hash = (hash * 31 + idHash) | 0
+			hash = (hash * 31 + (Math.round(n.x * 10) | 0)) | 0
+			hash = (hash * 31 + (Math.round(n.y * 10) | 0)) | 0
 		}
 		return hash
 	}

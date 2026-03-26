@@ -27,6 +27,7 @@ export function MemoryGraph({
 	highlightDocumentIds = [],
 	highlightsVisible = true,
 	showFps = false,
+	maxNodes,
 	isSlideshowActive = false,
 	onSlideshowNodeChange,
 	onSlideshowStop: _onSlideshowStop,
@@ -51,8 +52,14 @@ export function MemoryGraph({
 	const [selectedNode, setSelectedNode] = useState<string | null>(null)
 	const [zoomDisplay, setZoomDisplay] = useState(50)
 
+	// Limit documents if maxNodes is set
+	const limitedDocuments = useMemo(() => {
+		if (!maxNodes || documents.length <= maxNodes) return documents
+		return documents.slice(0, maxNodes)
+	}, [documents, maxNodes])
+
 	const { nodes, edges } = useGraphData(
-		documents,
+		limitedDocuments,
 		apiEdges,
 		null,
 		containerSize.width,
@@ -62,8 +69,8 @@ export function MemoryGraph({
 
 	// Rebuild version chain index when documents change
 	useEffect(() => {
-		chainIndex.current.rebuild(documents)
-	}, [documents])
+		chainIndex.current.rebuild(limitedDocuments)
+	}, [limitedDocuments])
 
 	// Smart simulation re-init: track node ID set, only init() when IDs change
 	const prevSimIdsRef = useRef<string>("")
@@ -386,7 +393,10 @@ export function MemoryGraph({
 		return () => window.removeEventListener("keydown", handler)
 	}, [navigateUp, navigateDown, navigateNext, navigatePrev])
 
-	// Slideshow
+	// Slideshow — use a ref for nodes to avoid re-creating the interval on every render
+	const nodesRef = useRef(nodes)
+	nodesRef.current = nodes
+
 	useEffect(() => {
 		if (!isSlideshowActive || nodes.length === 0) {
 			if (!isSlideshowActive) {
@@ -398,17 +408,18 @@ export function MemoryGraph({
 
 		let lastIdx = -1
 		const pick = () => {
-			if (nodes.length === 0) return
+			const currentNodes = nodesRef.current
+			if (currentNodes.length === 0) return
 			let idx: number
-			if (nodes.length > 1) {
+			if (currentNodes.length > 1) {
 				do {
-					idx = Math.floor(Math.random() * nodes.length)
+					idx = Math.floor(Math.random() * currentNodes.length)
 				} while (idx === lastIdx)
 			} else {
 				idx = 0
 			}
 			lastIdx = idx
-			const n = nodes[idx]!
+			const n = currentNodes[idx]!
 			setSelectedNode(n.id)
 			viewportRef.current?.centerOn(
 				n.x,
@@ -426,7 +437,7 @@ export function MemoryGraph({
 		return () => clearInterval(interval)
 	}, [
 		isSlideshowActive,
-		nodes,
+		nodes.length,
 		containerSize.width,
 		containerSize.height,
 		onSlideshowNodeChange,
@@ -448,7 +459,9 @@ export function MemoryGraph({
 			screenY: screen.y,
 			nodeRadius: (activeNodeData.size * vp.zoom) / 2,
 		}
-	}, [activeNodeData])
+		// zoomDisplay triggers re-computation on viewport changes (pan/zoom)
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [activeNodeData, zoomDisplay])
 
 	const activeVersionChain = useMemo(() => {
 		if (!activeNodeData || activeNodeData.type !== "memory") return null
