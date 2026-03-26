@@ -7,7 +7,7 @@ import type {
 	GraphViewportResponse,
 	GraphBoundsResponse,
 	GraphStatsResponse,
-} from "../types"
+} from "@supermemory/memory-graph"
 
 interface ViewportParams {
 	minX: number

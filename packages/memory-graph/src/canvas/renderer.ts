@@ -1,5 +1,10 @@
+import type {
+	DocumentNodeData,
+	GraphEdge,
+	GraphNode,
+	GraphThemeColors,
+} from "../types"
 import type { ViewportState } from "./viewport"
-import type { GraphNode, GraphEdge, DocumentNodeData } from "../types"
 
 export interface RenderState {
 	selectedNodeId: string | null
@@ -7,6 +12,9 @@ export interface RenderState {
 	highlightIds: Set<string>
 	dimProgress: number
 }
+
+// Module-level reusable batch map – cleared each frame instead of reallocating
+const edgeBatches = new Map<string, PreparedEdge[]>()
 
 export function renderFrame(
 	ctx: CanvasRenderingContext2D,
@@ -17,21 +25,23 @@ export function renderFrame(
 	height: number,
 	state: RenderState,
 	nodeMap: Map<string, GraphNode>,
+	colors: GraphThemeColors,
 ): void {
 	ctx.clearRect(0, 0, width, height)
-	drawDocDocLines(ctx, nodes, viewport, width, height)
-	drawEdges(ctx, edges, viewport, width, height, state, nodeMap)
-	drawNodes(ctx, nodes, viewport, width, height, state)
+	drawDocDocLines(ctx, nodes, viewport, width, height, colors)
+	drawEdges(ctx, edges, viewport, width, height, state, nodeMap, colors)
+	drawNodes(ctx, nodes, viewport, width, height, state, colors)
 }
 
-// Connect each visible doc to its 2 nearest neighbors
 function drawDocDocLines(
 	ctx: CanvasRenderingContext2D,
 	nodes: GraphNode[],
 	viewport: ViewportState,
 	width: number,
 	height: number,
+	colors: GraphThemeColors,
 ): void {
+	// Collect visible docs with screen positions
 	const docs: { x: number; y: number }[] = []
 	for (const n of nodes) {
 		if (n.type !== "document") continue
@@ -42,43 +52,68 @@ function drawDocDocLines(
 	}
 	if (docs.length < 2) return
 
-	ctx.strokeStyle = "#8DA3F4"
+	// Build spatial grid for O(n*k) nearest-neighbor instead of O(n^2)
+	const CELL = 200
+	const grid = new Map<string, number[]>()
+	for (let i = 0; i < docs.length; i++) {
+		const d = docs[i]!
+		const key = `${Math.floor(d.x / CELL)},${Math.floor(d.y / CELL)}`
+		let cell = grid.get(key)
+		if (!cell) {
+			cell = []
+			grid.set(key, cell)
+		}
+		cell.push(i)
+	}
+
+	// For each doc, find 2 nearest from neighboring cells only
+	ctx.strokeStyle = colors.edgeDocDoc
 	ctx.lineWidth = 1
 	ctx.globalAlpha = 0.3
 	ctx.setLineDash([4, 6])
 	ctx.beginPath()
 
-	// Deduplicate: only draw line when i < neighbor index
 	for (let i = 0; i < docs.length; i++) {
 		const d = docs[i]!
+		const cx = Math.floor(d.x / CELL)
+		const cy = Math.floor(d.y / CELL)
 		let best1 = -1
 		let best2 = -1
-		let dist1 = Number.POSITIVE_INFINITY
-		let dist2 = Number.POSITIVE_INFINITY
+		let dist1 = Infinity
+		let dist2 = Infinity
 
-		for (let j = 0; j < docs.length; j++) {
-			if (j === i) continue
-			const dx = docs[j]!.x - d.x
-			const dy = docs[j]!.y - d.y
-			const dist = dx * dx + dy * dy
-			if (dist < dist1) {
-				best2 = best1
-				dist2 = dist1
-				best1 = j
-				dist1 = dist
-			} else if (dist < dist2) {
-				best2 = j
-				dist2 = dist
+		for (let dx = -1; dx <= 1; dx++) {
+			for (let dy = -1; dy <= 1; dy++) {
+				const cell = grid.get(`${cx + dx},${cy + dy}`)
+				if (!cell) continue
+				for (const j of cell) {
+					if (j === i) continue
+					const other = docs[j]!
+					const ox = other.x - d.x
+					const oy = other.y - d.y
+					const dist = ox * ox + oy * oy
+					if (dist < dist1) {
+						best2 = best1
+						dist2 = dist1
+						best1 = j
+						dist1 = dist
+					} else if (dist < dist2) {
+						best2 = j
+						dist2 = dist
+					}
+				}
 			}
 		}
 
 		if (best1 >= 0 && i < best1) {
+			const b1 = docs[best1]!
 			ctx.moveTo(d.x, d.y)
-			ctx.lineTo(docs[best1]!.x, docs[best1]!.y)
+			ctx.lineTo(b1.x, b1.y)
 		}
 		if (best2 >= 0 && i < best2) {
+			const b2 = docs[best2]!
 			ctx.moveTo(d.x, d.y)
-			ctx.lineTo(docs[best2]!.x, docs[best2]!.y)
+			ctx.lineTo(b2.x, b2.y)
 		}
 	}
 
@@ -87,26 +122,19 @@ function drawDocDocLines(
 	ctx.globalAlpha = 1
 }
 
-// --- Edges ---
-
-const EDGE_STYLE: Record<string, { color: string; width: number }> = {
-	"doc-memory": { color: "#4A5568", width: 1.5 },
-	version: { color: "#8B5CF6", width: 2 },
+function edgeStyle(
+	edge: GraphEdge,
+	colors: GraphThemeColors,
+): { color: string; width: number } {
+	if (edge.edgeType === "doc-memory")
+		return { color: colors.edgeDocMemory, width: 1.5 }
+	if (edge.edgeType === "version")
+		return { color: colors.edgeVersion, width: 2 }
+	if (edge.similarity >= 0.9) return { color: colors.edgeSimStrong, width: 2 }
+	if (edge.similarity >= 0.8) return { color: colors.edgeSimMedium, width: 1.5 }
+	return { color: colors.edgeSimWeak, width: 1 }
 }
 
-const SIM_STRONG = { color: "#00D4B8", width: 2 } as const
-const SIM_MEDIUM = { color: "#6B8FBF", width: 1.5 } as const
-const SIM_WEAK = { color: "#4A6A8A", width: 1 } as const
-
-function edgeStyle(edge: GraphEdge): { color: string; width: number } {
-	const preset = EDGE_STYLE[edge.edgeType]
-	if (preset) return preset
-	if (edge.similarity >= 0.9) return SIM_STRONG
-	if (edge.similarity >= 0.8) return SIM_MEDIUM
-	return SIM_WEAK
-}
-
-// Unique key for batching: "color|width"
 function batchKey(style: { color: string; width: number }): string {
 	return `${style.color}|${style.width}`
 }
@@ -130,21 +158,26 @@ function drawEdges(
 	height: number,
 	state: RenderState,
 	nodeMap: Map<string, GraphNode>,
+	colors: GraphThemeColors,
 ): void {
 	const margin = 100
 	const hasDim = state.selectedNodeId !== null && state.dimProgress > 0
 
-	// Prepare all visible edges
 	const prepared: PreparedEdge[] = []
 
 	for (const edge of edges) {
+		// Zoom-based edge culling for similarity edges
+		if (edge.edgeType === "similarity") {
+			if (viewport.zoom < 0.3) continue
+			if (viewport.zoom < 0.5 && edge.similarity < 0.9) continue
+		}
+
 		const src =
 			typeof edge.source === "string" ? nodeMap.get(edge.source) : edge.source
 		const tgt =
 			typeof edge.target === "string" ? nodeMap.get(edge.target) : edge.target
 		if (!src || !tgt) continue
 
-		// Skip doc-memory edges when memory dots are too small to see connections
 		if (edge.edgeType === "doc-memory") {
 			const mem = src.type === "memory" ? src : tgt
 			if (mem.size * viewport.zoom < 3) continue
@@ -187,30 +220,30 @@ function drawEdges(
 			endX: t.x - ux * tr,
 			endY: t.y - uy * tr,
 			connected,
-			style: edgeStyle(edge),
+			style: edgeStyle(edge, colors),
 			isVersion: edge.edgeType === "version",
 			arrowSize:
 				edge.edgeType === "version" ? Math.max(6, 8 * viewport.zoom) : 0,
 		})
 	}
 
-	// Batch by style + dim state: group into "key|connected" and "key|dimmed"
-	const batches = new Map<string, PreparedEdge[]>()
+	// Reuse module-level batch map
+	edgeBatches.clear()
 	for (const e of prepared) {
 		const dimKey = hasDim ? (e.connected ? "|c" : "|d") : ""
 		const key = batchKey(e.style) + dimKey
-		let batch = batches.get(key)
+		let batch = edgeBatches.get(key)
 		if (!batch) {
 			batch = []
-			batches.set(key, batch)
+			edgeBatches.set(key, batch)
 		}
 		batch.push(e)
 	}
 
-	// Draw each batch in a single beginPath/stroke
 	ctx.setLineDash([])
-	for (const [key, batch] of batches) {
-		const first = batch[0]!
+	for (const [key, batch] of edgeBatches) {
+		const first = batch[0]
+		if (!first) continue
 		const isDimmed = key.endsWith("|d")
 
 		ctx.globalAlpha = isDimmed ? 1 - state.dimProgress * 0.8 : 1
@@ -224,7 +257,6 @@ function drawEdges(
 		}
 		ctx.stroke()
 
-		// Arrow heads for version edges (fill calls — unavoidable per-arrow)
 		const versionEdges = batch.filter((e) => e.isVersion)
 		if (versionEdges.length > 0) {
 			ctx.fillStyle = first.style.color
@@ -260,8 +292,6 @@ function drawArrowHead(
 	ctx.fill()
 }
 
-// --- Nodes ---
-
 function drawNodes(
 	ctx: CanvasRenderingContext2D,
 	nodes: GraphNode[],
@@ -269,6 +299,7 @@ function drawNodes(
 	width: number,
 	height: number,
 	state: RenderState,
+	colors: GraphThemeColors,
 ): void {
 	const margin = 60
 	const memDots: { x: number; y: number; r: number; color: string }[] = []
@@ -278,7 +309,6 @@ function drawNodes(
 		const screen = viewport.worldToScreen(node.x, node.y)
 		const screenSize = node.size * viewport.zoom
 
-		// Frustum cull (use at least 2px so tiny nodes aren't culled)
 		const cullSize = Math.max(screenSize, 2)
 		if (
 			screen.x + cullSize < -margin ||
@@ -292,7 +322,6 @@ function drawNodes(
 		const isHovered = node.id === state.hoveredNodeId
 		const isHighlighted = state.highlightIds.has(node.id)
 
-		// LOD: tiny nodes → batched dots (but selected/highlighted always get full detail)
 		if (screenSize < 8 && !isSelected && !isHovered && !isHighlighted) {
 			if (node.type === "document") {
 				docDots.push({ x: screen.x, y: screen.y, s: Math.max(3, screenSize) })
@@ -301,7 +330,7 @@ function drawNodes(
 					x: screen.x,
 					y: screen.y,
 					r: Math.max(2, screenSize * 0.45),
-					color: node.borderColor || "#3B73B8",
+					color: node.borderColor || colors.memStrokeDefault,
 				})
 			}
 			continue
@@ -323,6 +352,7 @@ function drawNodes(
 				isSelected,
 				isHovered,
 				isHighlighted,
+				colors,
 			)
 		} else {
 			drawMemoryNode(
@@ -334,11 +364,12 @@ function drawNodes(
 				isSelected,
 				isHovered,
 				isHighlighted,
+				colors,
 			)
 		}
 
 		if (isSelected || isHighlighted) {
-			drawGlow(ctx, screen.x, screen.y, screenSize, node.type)
+			drawGlow(ctx, screen.x, screen.y, screenSize, node.type, colors)
 		}
 	}
 
@@ -347,10 +378,9 @@ function drawNodes(
 			? 1 - state.dimProgress * 0.7
 			: 1
 
-	// Batch: document dots as filled squares
 	if (docDots.length > 0) {
-		ctx.fillStyle = "#1B1F24"
-		ctx.strokeStyle = "#2A2F36"
+		ctx.fillStyle = colors.docFill
+		ctx.strokeStyle = colors.docStroke
 		ctx.lineWidth = 1
 		ctx.globalAlpha = dimAlpha
 		for (const d of docDots) {
@@ -360,12 +390,10 @@ function drawNodes(
 		}
 	}
 
-	// Batch: memory dots — dark fill, then colored border strokes
 	if (memDots.length > 0) {
 		ctx.globalAlpha = dimAlpha
 
-		// Pass 1: all dark fills in one batch
-		ctx.fillStyle = "#0D2034"
+		ctx.fillStyle = colors.memFill
 		ctx.beginPath()
 		for (const d of memDots) {
 			ctx.moveTo(d.x + d.r, d.y)
@@ -373,7 +401,6 @@ function drawNodes(
 		}
 		ctx.fill()
 
-		// Pass 2: colored strokes grouped by border color
 		ctx.lineWidth = 1.5
 		const byColor = new Map<string, typeof memDots>()
 		for (const d of memDots) {
@@ -407,32 +434,34 @@ function drawDocumentNode(
 	isSelected: boolean,
 	isHovered: boolean,
 	isHighlighted: boolean,
+	colors: GraphThemeColors,
 ): void {
 	const half = size * 0.5
 	const cornerR = 8 * (size / 50)
 
-	// Outer rect
-	ctx.fillStyle = "#1B1F24"
+	ctx.fillStyle = colors.docFill
 	ctx.strokeStyle =
-		isSelected || isHighlighted ? "#3B73B8" : isHovered ? "#3B73B8" : "#2A2F36"
+		isSelected || isHighlighted
+			? colors.accent
+			: isHovered
+				? colors.accent
+				: colors.docStroke
 	ctx.lineWidth = isSelected || isHighlighted ? 2 : 1
 	roundRect(ctx, sx - half, sy - half, size, size, cornerR)
 	ctx.fill()
 	ctx.stroke()
 
-	// Inner rect
 	const innerSize = size * 0.72
 	const innerHalf = innerSize * 0.5
 	const innerR = 6 * (size / 50)
-	ctx.fillStyle = "#13161A"
+	ctx.fillStyle = colors.docInnerFill
 	roundRect(ctx, sx - innerHalf, sy - innerHalf, innerSize, innerSize, innerR)
 	ctx.fill()
 
-	// Icon
 	const iconSize = size * 0.35
 	const docType =
 		node.type === "document" ? (node.data as DocumentNodeData).type : "text"
-	drawDocIcon(ctx, sx, sy, iconSize, docType || "text")
+	drawDocIcon(ctx, sx, sy, iconSize, docType || "text", colors)
 }
 
 function drawMemoryNode(
@@ -444,17 +473,16 @@ function drawMemoryNode(
 	isSelected: boolean,
 	isHovered: boolean,
 	_isHighlighted: boolean,
+	colors: GraphThemeColors,
 ): void {
 	const radius = size * 0.5
 
-	// Fill
-	ctx.fillStyle = isHovered ? "#112840" : "#0D2034"
+	ctx.fillStyle = isHovered ? colors.memFillHover : colors.memFill
 	drawHexagon(ctx, sx, sy, radius)
 	ctx.fill()
 
-	// Stroke with time-based border color
-	const borderColor = node.borderColor || "#3B73B8"
-	ctx.strokeStyle = isSelected ? "#3B73B8" : borderColor
+	const borderColor = node.borderColor || colors.memStrokeDefault
+	ctx.strokeStyle = isSelected ? colors.accent : borderColor
 	ctx.lineWidth = isHovered ? 2 : 1.5
 	ctx.stroke()
 }
@@ -465,8 +493,9 @@ function drawGlow(
 	sy: number,
 	size: number,
 	nodeType: "document" | "memory",
+	colors: GraphThemeColors,
 ): void {
-	ctx.strokeStyle = "#3B73B8"
+	ctx.strokeStyle = colors.glowColor
 	ctx.lineWidth = 2
 	ctx.setLineDash([3, 3])
 	ctx.globalAlpha = 0.8
@@ -484,8 +513,6 @@ function drawGlow(
 	ctx.setLineDash([])
 	ctx.globalAlpha = 1
 }
-
-// --- Shapes ---
 
 function drawHexagon(
 	ctx: CanvasRenderingContext2D,
@@ -524,20 +551,17 @@ function roundRect(
 	ctx.closePath()
 }
 
-// --- Document icons ---
-
-const ICON_COLOR = "#3B73B8"
-
 function drawDocIcon(
 	ctx: CanvasRenderingContext2D,
 	x: number,
 	y: number,
 	size: number,
 	type: string,
+	colors: GraphThemeColors,
 ): void {
 	ctx.save()
-	ctx.fillStyle = ICON_COLOR
-	ctx.strokeStyle = ICON_COLOR
+	ctx.fillStyle = colors.iconColor
+	ctx.strokeStyle = colors.iconColor
 	ctx.lineWidth = Math.max(1, size / 12)
 	ctx.lineCap = "round"
 	ctx.lineJoin = "round"

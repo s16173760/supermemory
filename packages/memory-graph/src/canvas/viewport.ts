@@ -43,7 +43,6 @@ export class ViewportState {
 	pan(dx: number, dy: number): void {
 		this.panX += dx
 		this.panY += dy
-		// Cancel any target pan animation when user drags
 		this.targetPanX = null
 		this.targetPanY = null
 	}
@@ -125,7 +124,6 @@ export class ViewportState {
 	tick(): boolean {
 		let moving = false
 
-		// Momentum panning
 		if (Math.abs(this.velocityX) > 0.5 || Math.abs(this.velocityY) > 0.5) {
 			this.panX += this.velocityX
 			this.panY += this.velocityY
@@ -137,7 +135,6 @@ export class ViewportState {
 			this.velocityY = 0
 		}
 
-		// Spring zoom
 		const zoomDiff = this.targetZoom - this.zoom
 		if (Math.abs(zoomDiff) > 0.001) {
 			const world = this.screenToWorld(this.zoomAnchorX, this.zoomAnchorY)
@@ -147,7 +144,6 @@ export class ViewportState {
 			moving = true
 		}
 
-		// Lerp pan animation
 		if (this.targetPanX !== null && this.targetPanY !== null) {
 			const dx = this.targetPanX - this.panX
 			const dy = this.targetPanY - this.panY

@@ -1,5 +1,5 @@
 import * as d3 from "d3-force"
-import type { GraphNode, GraphEdge } from "../types"
+import type { GraphEdge, GraphNode } from "../types"
 
 export class ForceSimulation {
 	private sim: d3.Simulation<GraphNode, GraphEdge> | null = null
@@ -10,7 +10,7 @@ export class ForceSimulation {
 		try {
 			this.sim = d3
 				.forceSimulation<GraphNode>(nodes)
-				.alphaDecay(0.03)
+				.alphaDecay(0.04)
 				.alphaMin(0.001)
 				.velocityDecay(0.6)
 
@@ -40,10 +40,9 @@ export class ForceSimulation {
 			this.sim.force("x", d3.forceX().strength(0.05))
 			this.sim.force("y", d3.forceY().strength(0.05))
 
-			// Pre-settle synchronously, then start the live simulation
 			this.sim.stop()
 			this.sim.alpha(1)
-			for (let i = 0; i < 50; i++) this.sim.tick()
+			for (let i = 0; i < 100; i++) this.sim.tick()
 			this.sim.alphaTarget(0).restart()
 		} catch (e) {
 			console.error("ForceSimulation.init failed:", e)

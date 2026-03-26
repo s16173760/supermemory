@@ -33,7 +33,6 @@ export class VersionChainIndex {
 		const mem = this.memoryMap.get(memoryId)
 		if (!mem || mem.version <= 1) return null
 
-		// Walk parentMemoryId up to the root
 		const chain: ChainEntry[] = []
 		const visited = new Set<string>()
 		let current: GraphApiMemory | undefined = mem
@@ -53,7 +52,6 @@ export class VersionChainIndex {
 
 		chain.reverse()
 
-		// Cache for every member in the chain
 		for (const entry of chain) {
 			this.cache.set(entry.id, chain)
 		}

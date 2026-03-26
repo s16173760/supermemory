@@ -1,6 +1,6 @@
-import type { ViewportState } from "./viewport"
-import type { SpatialIndex } from "./hit-test"
 import type { GraphNode } from "../types"
+import type { SpatialIndex } from "./hit-test"
+import type { ViewportState } from "./viewport"
 
 interface InputCallbacks {
 	onNodeHover: (id: string | null) => void
@@ -20,22 +20,17 @@ export class InputHandler {
 	private lastMouseX = 0
 	private lastMouseY = 0
 
-	// Ring buffer for velocity tracking
 	private posHistory: Array<{ x: number; y: number; t: number }> = []
 
 	private draggingNode: GraphNode | null = null
-	private dragStartX = 0
-	private dragStartY = 0
 	private didDrag = false
 
 	private currentHoveredId: string | null = null
 
-	// Touch state
 	private lastTouchDistance = 0
 	private lastTouchCenter = { x: 0, y: 0 }
 	private isTouchGesture = false
 
-	// Bound handlers for cleanup
 	private boundMouseDown: (e: MouseEvent) => void
 	private boundMouseMove: (e: MouseEvent) => void
 	private boundMouseUp: (e: MouseEvent) => void
@@ -128,8 +123,6 @@ export class InputHandler {
 
 		if (node) {
 			this.draggingNode = node
-			this.dragStartX = x
-			this.dragStartY = y
 			node.fx = node.x
 			node.fy = node.y
 			this.callbacks.onNodeDragStart(node.id, node)
@@ -162,7 +155,6 @@ export class InputHandler {
 			this.lastMouseY = y
 			this.didDrag = true
 
-			// Track positions for velocity (keep last 4)
 			const now = performance.now()
 			this.posHistory.push({ x, y, t: now })
 			if (this.posHistory.length > 4) this.posHistory.shift()
@@ -171,7 +163,6 @@ export class InputHandler {
 			return
 		}
 
-		// Hover detection
 		const world = this.viewport.screenToWorld(x, y)
 		const node = this.spatialIndex.queryPoint(world.x, world.y)
 		const id = node?.id ?? null
@@ -196,13 +187,13 @@ export class InputHandler {
 		if (this.isPanning) {
 			this.isPanning = false
 
-			// Calculate release velocity from position history
 			if (this.posHistory.length >= 2) {
-				const newest = this.posHistory[this.posHistory.length - 1]!
-				const oldest = this.posHistory[0]!
+				const newest = this.posHistory[this.posHistory.length - 1]
+				const oldest = this.posHistory[0]
+				if (!newest || !oldest) return
 				const dt = newest.t - oldest.t
 				if (dt > 0 && dt < 200) {
-					const vx = ((newest.x - oldest.x) / dt) * 16 // scale to ~60fps frame
+					const vx = ((newest.x - oldest.x) / dt) * 16
 					const vy = ((newest.y - oldest.y) / dt) * 16
 					this.viewport.releaseWithVelocity(vx, vy)
 				}
@@ -233,28 +224,26 @@ export class InputHandler {
 
 		const { x, y } = this.canvasXY(e)
 
-		// Horizontal scroll -> pan
 		if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
 			this.viewport.pan(-e.deltaX, 0)
 			this.callbacks.onRequestRender()
 			return
 		}
 
-		// Vertical scroll -> zoom
 		const factor = e.deltaY > 0 ? 0.97 : 1.03
 		this.viewport.zoomImmediate(factor, x, y)
 		this.callbacks.onRequestRender()
 	}
 
-	// Touch handling
 	private onTouchStart(e: TouchEvent): void {
 		e.preventDefault()
 		const touches = e.touches
 
 		if (touches.length >= 2) {
 			this.isTouchGesture = true
-			const t0 = touches[0]!
-			const t1 = touches[1]!
+			const t0 = touches[0]
+			const t1 = touches[1]
+			if (!t0 || !t1) return
 			this.lastTouchDistance = Math.hypot(
 				t1.clientX - t0.clientX,
 				t1.clientY - t0.clientY,
@@ -263,9 +252,9 @@ export class InputHandler {
 				x: (t0.clientX + t1.clientX) / 2,
 				y: (t0.clientY + t1.clientY) / 2,
 			}
-		} else if (touches.length === 1) {
+		} else if (touches.length === 1 && touches[0]) {
 			this.isTouchGesture = false
-			const t = touches[0]!
+			const t = touches[0]
 			const rect = this.canvas.getBoundingClientRect()
 			this.lastMouseX = t.clientX - rect.left
 			this.lastMouseY = t.clientY - rect.top
@@ -278,8 +267,9 @@ export class InputHandler {
 		const touches = e.touches
 
 		if (touches.length >= 2 && this.isTouchGesture) {
-			const t0 = touches[0]!
-			const t1 = touches[1]!
+			const t0 = touches[0]
+			const t1 = touches[1]
+			if (!t0 || !t1) return
 			const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY)
 			const center = {
 				x: (t0.clientX + t1.clientX) / 2,
@@ -289,11 +279,9 @@ export class InputHandler {
 			const cx = center.x - rect.left
 			const cy = center.y - rect.top
 
-			// Pinch zoom
 			const scale = dist / this.lastTouchDistance
 			this.viewport.zoomImmediate(scale, cx, cy)
 
-			// Pan from center movement
 			const dx = center.x - this.lastTouchCenter.x
 			const dy = center.y - this.lastTouchCenter.y
 			this.viewport.pan(dx, dy)
@@ -301,8 +289,13 @@ export class InputHandler {
 			this.lastTouchDistance = dist
 			this.lastTouchCenter = center
 			this.callbacks.onRequestRender()
-		} else if (touches.length === 1 && this.isPanning && !this.isTouchGesture) {
-			const t = touches[0]!
+		} else if (
+			touches.length === 1 &&
+			this.isPanning &&
+			!this.isTouchGesture &&
+			touches[0]
+		) {
+			const t = touches[0]
 			const rect = this.canvas.getBoundingClientRect()
 			const x = t.clientX - rect.left
 			const y = t.clientY - rect.top
