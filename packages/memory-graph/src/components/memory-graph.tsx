@@ -396,10 +396,15 @@ export function MemoryGraph({
 		return () => window.removeEventListener("keydown", handler)
 	}, [navigateUp, navigateDown, navigateNext, navigatePrev])
 
-	// Slideshow — use a ref for nodes to avoid re-creating the interval on every render
+	// Slideshow — use refs to avoid re-creating the interval on resize or node updates
 	const nodesRef = useRef(nodes)
 	nodesRef.current = nodes
+	const containerSizeRef = useRef(containerSize)
+	containerSizeRef.current = containerSize
+	const onSlideshowNodeChangeRef = useRef(onSlideshowNodeChange)
+	onSlideshowNodeChangeRef.current = onSlideshowNodeChange
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reads from refs to avoid resetting interval on resize/node changes
 	useEffect(() => {
 		if (!isSlideshowActive || nodes.length === 0) {
 			if (!isSlideshowActive) {
@@ -424,27 +429,17 @@ export function MemoryGraph({
 			lastIdx = idx
 			const n = currentNodes[idx]!
 			setSelectedNode(n.id)
-			viewportRef.current?.centerOn(
-				n.x,
-				n.y,
-				containerSize.width,
-				containerSize.height,
-			)
+			const sz = containerSizeRef.current
+			viewportRef.current?.centerOn(n.x, n.y, sz.width, sz.height)
 			simulationRef.current?.reheat()
-			onSlideshowNodeChange?.(n.id)
+			onSlideshowNodeChangeRef.current?.(n.id)
 			setTimeout(() => simulationRef.current?.coolDown(), 1000)
 		}
 
 		pick()
 		const interval = setInterval(pick, 3500)
 		return () => clearInterval(interval)
-	}, [
-		isSlideshowActive,
-		nodes.length,
-		containerSize.width,
-		containerSize.height,
-		onSlideshowNodeChange,
-	])
+	}, [isSlideshowActive, nodes.length])
 
 	// Active node: selected takes priority, then hovered
 	const activeNodeId = selectedNode ?? hoveredNode
