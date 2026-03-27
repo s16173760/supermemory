@@ -71,7 +71,7 @@ describe("VersionChainIndex", () => {
 		expect(chain!.map((e) => e.id)).toEqual(["m1", "m2", "m3"])
 	})
 
-	it("getChain from middle element walks back to root", () => {
+	it("getChain from middle element returns full chain (backward + forward)", () => {
 		const idx = new VersionChainIndex()
 		const doc = makeDoc("d1", [
 			makeMem({ id: "m1", version: 1 }),
@@ -90,12 +90,11 @@ describe("VersionChainIndex", () => {
 		])
 		idx.rebuild([doc])
 
-		// Query from m2 (version 2) — walks back m2->m1, reverses to [m1,m2]
-		// Note: it doesn't walk forward to m3, only backward
+		// Query from m2 (version 2) — walks back to m1, forward to m3
 		const chain = idx.getChain("m2")
 		expect(chain).not.toBeNull()
-		expect(chain!.length).toBe(2)
-		expect(chain!.map((e) => e.id)).toEqual(["m1", "m2"])
+		expect(chain!.length).toBe(3)
+		expect(chain!.map((e) => e.id)).toEqual(["m1", "m2", "m3"])
 	})
 
 	it("caches chain results for all entries in the chain", () => {
@@ -116,6 +115,32 @@ describe("VersionChainIndex", () => {
 		const chain2 = idx.getChain("m1")
 		// m1 is version 1, but it was cached as part of m2's chain
 		expect(chain2).toBe(chain1) // same reference
+	})
+
+	it("getChain from v1 root with children returns full chain", () => {
+		const idx = new VersionChainIndex()
+		const doc = makeDoc("d1", [
+			makeMem({ id: "m1", version: 1 }),
+			makeMem({
+				id: "m2",
+				parentMemoryId: "m1",
+				rootMemoryId: "m1",
+				version: 2,
+			}),
+			makeMem({
+				id: "m3",
+				parentMemoryId: "m2",
+				rootMemoryId: "m1",
+				version: 3,
+			}),
+		])
+		idx.rebuild([doc])
+
+		// Query from v1 root — walks forward to m2, m3
+		const chain = idx.getChain("m1")
+		expect(chain).not.toBeNull()
+		expect(chain!.length).toBe(3)
+		expect(chain!.map((e) => e.id)).toEqual(["m1", "m2", "m3"])
 	})
 
 	it("getChain returns null for unknown ID", () => {

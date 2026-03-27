@@ -10,6 +10,7 @@ export interface ChainEntry {
 
 export class VersionChainIndex {
 	private memoryMap = new Map<string, GraphApiMemory>()
+	private childrenMap = new Map<string, string[]>()
 	private cache = new Map<string, ChainEntry[]>()
 	private lastDocs: GraphApiDocument[] | null = null
 
@@ -17,11 +18,20 @@ export class VersionChainIndex {
 		if (documents === this.lastDocs) return
 		this.lastDocs = documents
 		this.memoryMap.clear()
+		this.childrenMap.clear()
 		this.cache.clear()
 
 		for (const doc of documents) {
 			for (const m of doc.memories) {
 				this.memoryMap.set(m.id, m)
+				if (m.parentMemoryId) {
+					let children = this.childrenMap.get(m.parentMemoryId)
+					if (!children) {
+						children = []
+						this.childrenMap.set(m.parentMemoryId, children)
+					}
+					children.push(m.id)
+				}
 			}
 		}
 	}
@@ -31,26 +41,47 @@ export class VersionChainIndex {
 		if (cached) return cached
 
 		const mem = this.memoryMap.get(memoryId)
-		if (!mem || mem.version <= 1) return null
+		if (!mem) return null
 
-		const chain: ChainEntry[] = []
+		// Walk backward to root
+		const backward: GraphApiMemory[] = []
 		const visited = new Set<string>()
 		let current: GraphApiMemory | undefined = mem
 		while (current && !visited.has(current.id)) {
 			visited.add(current.id)
-			chain.push({
-				id: current.id,
-				version: current.version,
-				memory: current.memory,
-				isForgotten: current.isForgotten,
-				isLatest: current.isLatest,
-			})
+			backward.push(current)
 			current = current.parentMemoryId
 				? this.memoryMap.get(current.parentMemoryId)
 				: undefined
 		}
+		backward.reverse()
 
-		chain.reverse()
+		// Walk forward from the selected node to find descendants
+		const forward: GraphApiMemory[] = []
+		let tip: GraphApiMemory | undefined = mem
+		while (tip) {
+			const children = this.childrenMap.get(tip.id)
+			if (!children || children.length === 0) break
+			const child = this.memoryMap.get(children[0])
+			if (!child || visited.has(child.id)) break
+			visited.add(child.id)
+			forward.push(child)
+			tip = child
+		}
+
+		// Combine: backward (root..selected) + forward (selected+1..latest)
+		const all = [...backward, ...forward]
+
+		// A single-entry chain (standalone v1 with no children) is not useful
+		if (all.length <= 1) return null
+
+		const chain: ChainEntry[] = all.map((m) => ({
+			id: m.id,
+			version: m.version,
+			memory: m.memory,
+			isForgotten: m.isForgotten,
+			isLatest: m.isLatest,
+		}))
 
 		for (const entry of chain) {
 			this.cache.set(entry.id, chain)
