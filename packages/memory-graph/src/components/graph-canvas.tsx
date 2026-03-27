@@ -234,12 +234,19 @@ export const GraphCanvas = memo<ExtendedGraphCanvasProps>(function GraphCanvas({
 				return
 			renderNeeded.current = false
 
-			// Report viewport changes (zoom, pan, or simulation-driven node movement)
-			// so popover positions update. Covers: momentum, spring zoom, mouse drag, and sim.
+			// Report viewport changes so popover positions update.
+			// Only fire when a popover is actually visible (selected or hovered node)
+			// to avoid triggering React re-renders at 60fps during plain panning.
 			const vpChanged =
 				vp.panX !== prevVpX || vp.panY !== prevVpY || vp.zoom !== prevVpZoom
-			if ((vpChanged || simActive) && cb.current.onViewportChange) {
+			if (
+				(vpChanged || simActive) &&
+				(cur.selectedNodeId || cur.hoveredNodeId) &&
+				cb.current.onViewportChange
+			) {
 				cb.current.onViewportChange(vp.zoom)
+			}
+			if (vpChanged) {
 				prevVpX = vp.panX
 				prevVpY = vp.panY
 				prevVpZoom = vp.zoom
