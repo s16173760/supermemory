@@ -418,7 +418,8 @@ export const NodeHoverPopover = memo<NodeHoverPopoverProps>(
 			borderRadius: 12,
 			overflow: "hidden",
 			border: `1px solid ${colors.popoverBorder}`,
-			boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)",
+			boxShadow:
+				"0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)",
 			width: CARD_W,
 			backgroundColor: colors.popoverBg,
 		}

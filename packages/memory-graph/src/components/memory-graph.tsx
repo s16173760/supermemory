@@ -543,11 +543,9 @@ export function MemoryGraph({
 				colors={colors}
 			/>
 
-			{!isLoading &&
-				!nodes.some((n) => n.type === "document") &&
-				children && (
-					<div style={emptyStateStyle}>{children}</div>
-				)}
+			{!isLoading && !nodes.some((n) => n.type === "document") && children && (
+				<div style={emptyStateStyle}>{children}</div>
+			)}
 
 			<div style={canvasContainerStyle} ref={containerRef}>
 				{containerSize.width > 0 && containerSize.height > 0 && (
@@ -555,9 +553,7 @@ export function MemoryGraph({
 						colors={colors}
 						edges={edges}
 						height={containerSize.height}
-						highlightDocumentIds={
-							highlightsVisible ? highlightDocumentIds : []
-						}
+						highlightDocumentIds={highlightsVisible ? highlightDocumentIds : []}
 						nodes={nodes}
 						onNodeClick={handleNodeClick}
 						onNodeDragEnd={handleNodeDragEnd}

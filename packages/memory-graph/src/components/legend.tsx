@@ -76,6 +76,7 @@ function ChevronDownIcon({ color }: { color: string }) {
 			strokeLinecap="round"
 			strokeLinejoin="round"
 			style={{ flexShrink: 0 }}
+			aria-hidden="true"
 		>
 			<path d="m6 9 6 6 6-6" />
 		</svg>
@@ -94,6 +95,7 @@ function ChevronRightIcon({ color }: { color: string }) {
 			strokeLinecap="round"
 			strokeLinejoin="round"
 			style={{ flexShrink: 0 }}
+			aria-hidden="true"
 		>
 			<path d="m9 18 6-6-6-6" />
 		</svg>
@@ -160,7 +162,11 @@ function StatRow({
 
 	return (
 		<div style={{ display: "flex", flexDirection: "column" }}>
-			<button onClick={expandable ? onToggle : undefined} style={buttonStyle} type="button">
+			<button
+				onClick={expandable ? onToggle : undefined}
+				style={buttonStyle}
+				type="button"
+			>
 				<div style={leftStyle}>
 					{icon}
 					<span style={labelStyle}>{label}</span>
@@ -279,11 +285,20 @@ export const Legend = memo(function Legend({
 					</button>
 
 					{isExpanded && (
-						<div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 16 }}>
+						<div
+							style={{
+								marginTop: 16,
+								display: "flex",
+								flexDirection: "column",
+								gap: 16,
+							}}
+						>
 							{/* Statistics section */}
 							<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
 								<span style={sectionLabelStyle}>Statistics</span>
-								<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+								<div
+									style={{ display: "flex", flexDirection: "column", gap: 6 }}
+								>
 									<StatRow
 										count={memoryCount}
 										icon={
@@ -354,16 +369,22 @@ export const Legend = memo(function Legend({
 											</svg>
 										}
 										label="Connections"
-										onToggle={() => setConnectionsExpanded(!connectionsExpanded)}
+										onToggle={() =>
+											setConnectionsExpanded(!connectionsExpanded)
+										}
 										colors={colors}
 									>
-										<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+										<div
+											style={{
+												display: "flex",
+												flexDirection: "column",
+												gap: 6,
+											}}
+										>
 											<div style={rowStyle}>
 												<div style={rowLeftStyle}>
 													<LineIcon color={colors.edgeDocMemory} />
-													<span style={edgeLabelStyle}>
-														Doc &gt; Memory
-													</span>
+													<span style={edgeLabelStyle}>Doc &gt; Memory</span>
 												</div>
 											</div>
 											<div style={rowStyle}>
@@ -392,15 +413,15 @@ export const Legend = memo(function Legend({
 							{/* Memory Status section */}
 							<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
 								<span style={sectionLabelStyle}>Memory Status</span>
-								<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+								<div
+									style={{ display: "flex", flexDirection: "column", gap: 6 }}
+								>
 									<div style={statusRowStyle}>
 										<HexagonIcon
 											fill={colors.memFill}
 											stroke={colors.memBorderRecent}
 										/>
-										<span style={edgeLabelStyle}>
-											Recent (&lt; 24h)
-										</span>
+										<span style={edgeLabelStyle}>Recent (&lt; 24h)</span>
 									</div>
 									<div style={statusRowStyle}>
 										<HexagonIcon

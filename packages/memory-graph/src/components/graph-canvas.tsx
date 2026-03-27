@@ -108,7 +108,10 @@ export const GraphCanvas = memo<ExtendedGraphCanvasProps>(function GraphCanvas({
 
 	// Track node ID changes for smart simulation re-init
 	useEffect(() => {
-		const idKey = nodes.map((n) => n.id).sort().join(",")
+		const idKey = nodes
+			.map((n) => n.id)
+			.sort()
+			.join(",")
 		if (idKey !== prevIdsRef.current) {
 			prevIdsRef.current = idKey
 			// IDs changed - full re-init needed (handled by parent)
@@ -280,7 +283,11 @@ export const GraphCanvas = memo<ExtendedGraphCanvasProps>(function GraphCanvas({
 				ctx.save()
 				ctx.resetTransform()
 				// Scale for DPR
-				const d = Math.min(16384 / cur.width, 16384 / cur.height, dprRef.current)
+				const d = Math.min(
+					16384 / cur.width,
+					16384 / cur.height,
+					dprRef.current,
+				)
 				ctx.scale(d, d)
 				ctx.fillStyle = "rgba(0,0,0,0.7)"
 				ctx.fillRect(8, 8, 140, 52)

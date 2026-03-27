@@ -234,4 +234,8 @@ export interface LoadingIndicatorProps {
 }
 
 // Re-export api-types for backward compatibility
-export type { DocumentWithMemories, MemoryEntry, DocumentsResponse } from "./api-types"
+export type {
+	DocumentWithMemories,
+	MemoryEntry,
+	DocumentsResponse,
+} from "./api-types"

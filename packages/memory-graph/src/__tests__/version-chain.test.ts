@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest"
 import { VersionChainIndex } from "../canvas/version-chain"
 import type { GraphApiDocument, GraphApiMemory } from "../types"
 
-function makeMem(overrides: Partial<GraphApiMemory> & { id: string }): GraphApiMemory {
+function makeMem(
+	overrides: Partial<GraphApiMemory> & { id: string },
+): GraphApiMemory {
 	return {
 		memory: `Memory ${overrides.id}`,
 		isStatic: false,
@@ -37,9 +39,7 @@ function makeDoc(id: string, memories: GraphApiMemory[]): GraphApiDocument {
 describe("VersionChainIndex", () => {
 	it("getChain returns null for version 1 memories (no chain)", () => {
 		const idx = new VersionChainIndex()
-		const doc = makeDoc("d1", [
-			makeMem({ id: "m1", version: 1 }),
-		])
+		const doc = makeDoc("d1", [makeMem({ id: "m1", version: 1 })])
 		idx.rebuild([doc])
 		// version <= 1 returns null per implementation
 		expect(idx.getChain("m1")).toBeNull()
@@ -49,8 +49,18 @@ describe("VersionChainIndex", () => {
 		const idx = new VersionChainIndex()
 		const doc = makeDoc("d1", [
 			makeMem({ id: "m1", version: 1 }),
-			makeMem({ id: "m2", parentMemoryId: "m1", rootMemoryId: "m1", version: 2 }),
-			makeMem({ id: "m3", parentMemoryId: "m2", rootMemoryId: "m1", version: 3 }),
+			makeMem({
+				id: "m2",
+				parentMemoryId: "m1",
+				rootMemoryId: "m1",
+				version: 2,
+			}),
+			makeMem({
+				id: "m3",
+				parentMemoryId: "m2",
+				rootMemoryId: "m1",
+				version: 3,
+			}),
 		])
 		idx.rebuild([doc])
 
@@ -65,8 +75,18 @@ describe("VersionChainIndex", () => {
 		const idx = new VersionChainIndex()
 		const doc = makeDoc("d1", [
 			makeMem({ id: "m1", version: 1 }),
-			makeMem({ id: "m2", parentMemoryId: "m1", rootMemoryId: "m1", version: 2 }),
-			makeMem({ id: "m3", parentMemoryId: "m2", rootMemoryId: "m1", version: 3 }),
+			makeMem({
+				id: "m2",
+				parentMemoryId: "m1",
+				rootMemoryId: "m1",
+				version: 2,
+			}),
+			makeMem({
+				id: "m3",
+				parentMemoryId: "m2",
+				rootMemoryId: "m1",
+				version: 3,
+			}),
 		])
 		idx.rebuild([doc])
 
@@ -82,7 +102,12 @@ describe("VersionChainIndex", () => {
 		const idx = new VersionChainIndex()
 		const doc = makeDoc("d1", [
 			makeMem({ id: "m1", version: 1 }),
-			makeMem({ id: "m2", parentMemoryId: "m1", rootMemoryId: "m1", version: 2 }),
+			makeMem({
+				id: "m2",
+				parentMemoryId: "m1",
+				rootMemoryId: "m1",
+				version: 2,
+			}),
 		])
 		idx.rebuild([doc])
 
@@ -109,7 +134,12 @@ describe("VersionChainIndex", () => {
 		const idx = new VersionChainIndex()
 		const doc1 = makeDoc("d1", [
 			makeMem({ id: "m1", version: 1 }),
-			makeMem({ id: "m2", parentMemoryId: "m1", rootMemoryId: "m1", version: 2 }),
+			makeMem({
+				id: "m2",
+				parentMemoryId: "m1",
+				rootMemoryId: "m1",
+				version: 2,
+			}),
 		])
 		idx.rebuild([doc1])
 		expect(idx.getChain("m2")).not.toBeNull()
@@ -123,10 +153,17 @@ describe("VersionChainIndex", () => {
 
 	it("rebuild skips if same array reference", () => {
 		const idx = new VersionChainIndex()
-		const docs = [makeDoc("d1", [
-			makeMem({ id: "m1", version: 1 }),
-			makeMem({ id: "m2", parentMemoryId: "m1", rootMemoryId: "m1", version: 2 }),
-		])]
+		const docs = [
+			makeDoc("d1", [
+				makeMem({ id: "m1", version: 1 }),
+				makeMem({
+					id: "m2",
+					parentMemoryId: "m1",
+					rootMemoryId: "m1",
+					version: 2,
+				}),
+			]),
+		]
 		idx.rebuild(docs)
 		const chain1 = idx.getChain("m2")
 
@@ -141,11 +178,21 @@ describe("VersionChainIndex", () => {
 		const docs = [
 			makeDoc("d1", [
 				makeMem({ id: "m1", version: 1 }),
-				makeMem({ id: "m2", parentMemoryId: "m1", rootMemoryId: "m1", version: 2 }),
+				makeMem({
+					id: "m2",
+					parentMemoryId: "m1",
+					rootMemoryId: "m1",
+					version: 2,
+				}),
 			]),
 			makeDoc("d2", [
 				makeMem({ id: "m3", version: 1 }),
-				makeMem({ id: "m4", parentMemoryId: "m3", rootMemoryId: "m3", version: 2 }),
+				makeMem({
+					id: "m4",
+					parentMemoryId: "m3",
+					rootMemoryId: "m3",
+					version: 2,
+				}),
 			]),
 		]
 		idx.rebuild(docs)
@@ -162,7 +209,13 @@ describe("VersionChainIndex", () => {
 		const idx = new VersionChainIndex()
 		const doc = makeDoc("d1", [
 			makeMem({ id: "m1", version: 1, isForgotten: true, isLatest: false }),
-			makeMem({ id: "m2", parentMemoryId: "m1", rootMemoryId: "m1", version: 2, isLatest: true }),
+			makeMem({
+				id: "m2",
+				parentMemoryId: "m1",
+				rootMemoryId: "m1",
+				version: 2,
+				isLatest: true,
+			}),
 		])
 		idx.rebuild([doc])
 

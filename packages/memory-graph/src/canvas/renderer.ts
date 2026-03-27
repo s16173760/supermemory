@@ -79,8 +79,8 @@ function drawDocDocLines(
 		const cy = Math.floor(d.y / CELL)
 		let best1 = -1
 		let best2 = -1
-		let dist1 = Infinity
-		let dist2 = Infinity
+		let dist1 = Number.POSITIVE_INFINITY
+		let dist2 = Number.POSITIVE_INFINITY
 
 		for (let dx = -1; dx <= 1; dx++) {
 			for (let dy = -1; dy <= 1; dy++) {

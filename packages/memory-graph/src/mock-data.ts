@@ -87,22 +87,112 @@ const MEMORY_TEMPLATES = [
 ]
 
 const TEMPLATE_FILLS: Record<string, string[]> = {
-	preference: ["TypeScript", "dark mode", "keyboard shortcuts", "minimal UI", "detailed logs", "async patterns"],
-	topic: ["authentication", "caching", "data sync", "graph rendering", "search indexing", "memory management"],
-	approach: ["event sourcing", "CQRS", "microservices", "edge functions", "WebSocket streams", "batch processing"],
-	requirement: ["10k concurrent users", "sub-100ms latency", "offline mode", "real-time updates", "GDPR compliance"],
-	component: ["auth", "graph", "search", "storage", "notification", "analytics"],
-	dependency: ["Redis", "PostgreSQL", "S3", "Cloudflare Workers", "D3-force", "WebGL"],
-	purpose: ["caching", "persistence", "rendering", "indexing", "scheduling", "routing"],
-	metric: ["p99 latency", "time to interactive", "memory usage", "CPU utilization", "bundle size"],
+	preference: [
+		"TypeScript",
+		"dark mode",
+		"keyboard shortcuts",
+		"minimal UI",
+		"detailed logs",
+		"async patterns",
+	],
+	topic: [
+		"authentication",
+		"caching",
+		"data sync",
+		"graph rendering",
+		"search indexing",
+		"memory management",
+	],
+	approach: [
+		"event sourcing",
+		"CQRS",
+		"microservices",
+		"edge functions",
+		"WebSocket streams",
+		"batch processing",
+	],
+	requirement: [
+		"10k concurrent users",
+		"sub-100ms latency",
+		"offline mode",
+		"real-time updates",
+		"GDPR compliance",
+	],
+	component: [
+		"auth",
+		"graph",
+		"search",
+		"storage",
+		"notification",
+		"analytics",
+	],
+	dependency: [
+		"Redis",
+		"PostgreSQL",
+		"S3",
+		"Cloudflare Workers",
+		"D3-force",
+		"WebGL",
+	],
+	purpose: [
+		"caching",
+		"persistence",
+		"rendering",
+		"indexing",
+		"scheduling",
+		"routing",
+	],
+	metric: [
+		"p99 latency",
+		"time to interactive",
+		"memory usage",
+		"CPU utilization",
+		"bundle size",
+	],
 	threshold: ["200ms", "500ms", "50MB", "3 seconds", "100KB", "1GB"],
-	action: ["run benchmarks", "update dependencies", "write migration scripts", "review PRs", "deploy to staging"],
+	action: [
+		"run benchmarks",
+		"update dependencies",
+		"write migration scripts",
+		"review PRs",
+		"deploy to staging",
+	],
 	deadline: ["end of sprint", "next release", "Q4", "Friday", "the demo"],
-	observation: ["confusion", "delight", "frustration", "efficiency gains", "unexpected usage patterns"],
-	feature: ["the graph view", "search filters", "memory chains", "document upload", "sharing"],
-	condition: ["high load", "cold start", "large datasets", "slow networks", "concurrent edits"],
-	issue: ["memory leaks", "race conditions", "stale data", "layout thrashing", "connection drops"],
-	oldThing: ["REST API", "MongoDB", "class components", "Webpack", "manual testing"],
+	observation: [
+		"confusion",
+		"delight",
+		"frustration",
+		"efficiency gains",
+		"unexpected usage patterns",
+	],
+	feature: [
+		"the graph view",
+		"search filters",
+		"memory chains",
+		"document upload",
+		"sharing",
+	],
+	condition: [
+		"high load",
+		"cold start",
+		"large datasets",
+		"slow networks",
+		"concurrent edits",
+	],
+	issue: [
+		"memory leaks",
+		"race conditions",
+		"stale data",
+		"layout thrashing",
+		"connection drops",
+	],
+	oldThing: [
+		"REST API",
+		"MongoDB",
+		"class components",
+		"Webpack",
+		"manual testing",
+	],
 	newThing: ["GraphQL", "PostgreSQL", "hooks", "Vite", "automated CI"],
 }
 
@@ -134,16 +224,22 @@ function generateTitle(random: () => number): string {
 
 function generateSummary(random: () => number): string | null {
 	if (random() < 0.15) return null
-	const template = SUMMARY_TEMPLATES[Math.floor(random() * SUMMARY_TEMPLATES.length)]
+	const template =
+		SUMMARY_TEMPLATES[Math.floor(random() * SUMMARY_TEMPLATES.length)]
 	return fillTemplate(template, random)
 }
 
 function generateMemoryContent(random: () => number): string {
-	const template = MEMORY_TEMPLATES[Math.floor(random() * MEMORY_TEMPLATES.length)]
+	const template =
+		MEMORY_TEMPLATES[Math.floor(random() * MEMORY_TEMPLATES.length)]
 	return fillTemplate(template, random)
 }
 
-function generateISODate(random: () => number, baseMs: number, rangeMs: number): string {
+function generateISODate(
+	random: () => number,
+	baseMs: number,
+	rangeMs: number,
+): string {
 	const ms = baseMs + Math.floor(random() * rangeMs)
 	return new Date(ms).toISOString()
 }
@@ -165,7 +261,12 @@ export function generateMockGraphData(options: MockGraphOptions = {}): {
 	const baseTime = new Date("2024-01-01T00:00:00Z").getTime()
 	const timeRange = 1000 * 60 * 60 * 24 * 540 // ~540 days
 
-	const spaceIds = ["space-default", "space-work", "space-personal", "space-research"]
+	const spaceIds = [
+		"space-default",
+		"space-work",
+		"space-personal",
+		"space-research",
+	]
 
 	const documents: GraphApiDocument[] = []
 
@@ -198,7 +299,11 @@ export function generateMockGraphData(options: MockGraphOptions = {}): {
 
 		for (let m = 0; m < memCount; m++) {
 			const memId = `mem-${docId}-${String(m).padStart(3, "0")}`
-			const memCreatedAt = generateISODate(random, new Date(docCreatedAt).getTime(), 1000 * 60 * 60 * 24 * 14)
+			const memCreatedAt = generateISODate(
+				random,
+				new Date(docCreatedAt).getTime(),
+				1000 * 60 * 60 * 24 * 14,
+			)
 			const memUpdatedAt = generateISODate(
 				random,
 				new Date(memCreatedAt).getTime(),
@@ -244,7 +349,8 @@ export function generateMockGraphData(options: MockGraphOptions = {}): {
 				forgetReason = random() < 0.5 ? "superseded" : "user-requested"
 			} else if (random() < 0.1) {
 				// Expiring memory
-				const expiryMs = Date.now() + Math.floor(random() * 1000 * 60 * 60 * 24 * 30)
+				const expiryMs =
+					Date.now() + Math.floor(random() * 1000 * 60 * 60 * 24 * 30)
 				forgetAfter = new Date(expiryMs).toISOString()
 			}
 
@@ -273,7 +379,8 @@ export function generateMockGraphData(options: MockGraphOptions = {}): {
 			id: docId,
 			title: generateTitle(random),
 			summary: generateSummary(random),
-			documentType: DOCUMENT_TYPES[Math.floor(random() * DOCUMENT_TYPES.length)],
+			documentType:
+				DOCUMENT_TYPES[Math.floor(random() * DOCUMENT_TYPES.length)],
 			createdAt: docCreatedAt,
 			updatedAt: docUpdatedAt,
 			x,
@@ -285,7 +392,10 @@ export function generateMockGraphData(options: MockGraphOptions = {}): {
 	// Generate similarity edges between random document pairs
 	const edges: GraphApiEdge[] = []
 	const totalPossiblePairs = (documentCount * (documentCount - 1)) / 2
-	const targetEdgeCount = Math.max(0, Math.floor(totalPossiblePairs * similarityEdgeRatio))
+	const targetEdgeCount = Math.max(
+		0,
+		Math.floor(totalPossiblePairs * similarityEdgeRatio),
+	)
 
 	// Use a set to avoid duplicate pairs
 	const edgeSet = new Set<string>()
@@ -319,7 +429,7 @@ export function generateMockGraphData(options: MockGraphOptions = {}): {
 		while (edges.length < targetEdgeCount && attempts < maxAttempts) {
 			attempts++
 			const i = Math.floor(random() * documentCount)
-			let j = Math.floor(random() * documentCount)
+			const j = Math.floor(random() * documentCount)
 			if (i === j) continue
 			const sourceIdx = Math.min(i, j)
 			const targetIdx = Math.max(i, j)

@@ -62,8 +62,6 @@ export default function Home() {
 	const [documents, setDocuments] = useState<DocumentWithMemories[]>([])
 	const [isLoading, setIsLoading] = useState(false)
 	const [error, setError] = useState<Error | null>(null)
-	const [hasMore, setHasMore] = useState(false)
-	const [currentPage, setCurrentPage] = useState(0)
 	const [showGraph, setShowGraph] = useState(false)
 	const [stressTestCount, setStressTestCount] = useState(0)
 
@@ -114,8 +112,6 @@ export default function Home() {
 					setDocuments(data.documents)
 				}
 
-				setCurrentPage(data.pagination.currentPage)
-				setHasMore(data.pagination.currentPage < data.pagination.totalPages)
 				setShowGraph(true)
 				setMockData(null)
 				setStressTestCount(0)
@@ -132,7 +128,6 @@ export default function Home() {
 		e.preventDefault()
 		if (apiKey) {
 			setDocuments([])
-			setCurrentPage(0)
 			fetchDocuments(1)
 		}
 	}
@@ -172,9 +167,7 @@ export default function Home() {
 		return toGraphDocuments(documents)
 	}, [documents, mockData])
 
-	const displayCount = mockData
-		? stressTestCount
-		: documents.length
+	const displayCount = mockData ? stressTestCount : documents.length
 
 	return (
 		<div className="flex flex-col h-screen bg-zinc-950">
@@ -215,9 +208,7 @@ export default function Home() {
 					<div className="flex items-center gap-6">
 						<div className="flex items-center gap-2">
 							<span className="text-zinc-400">Documents:</span>
-							<span className="font-mono text-emerald-400">
-								{displayCount}
-							</span>
+							<span className="font-mono text-emerald-400">{displayCount}</span>
 						</div>
 						{stressTestCount > 0 && (
 							<span className="rounded bg-amber-900/50 px-2 py-0.5 text-xs text-amber-400">
@@ -257,6 +248,7 @@ export default function Home() {
 								height="12"
 								viewBox="0 0 24 24"
 								fill="currentColor"
+								aria-hidden="true"
 							>
 								{isSlideshowActive ? (
 									<rect x="6" y="6" width="12" height="12" />
@@ -281,6 +273,7 @@ export default function Home() {
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
+									aria-hidden="true"
 								>
 									<path
 										strokeLinecap="round"

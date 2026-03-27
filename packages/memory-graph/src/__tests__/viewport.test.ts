@@ -185,7 +185,9 @@ describe("ViewportState", () => {
 
 	it("fitToNodes handles single node without throwing", () => {
 		const vp = new ViewportState()
-		expect(() => vp.fitToNodes([makeNode("a", 500, 500)], 800, 600)).not.toThrow()
+		expect(() =>
+			vp.fitToNodes([makeNode("a", 500, 500)], 800, 600),
+		).not.toThrow()
 	})
 
 	it("fitToNodes handles empty nodes array without throwing", () => {
