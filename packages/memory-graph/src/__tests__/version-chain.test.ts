@@ -301,4 +301,108 @@ describe("VersionChainIndex", () => {
 			isLatest: true,
 		})
 	})
+
+	// --- Additional edge cases ---
+
+	it("getChain returns null for orphaned non-root memory (v2+, no parent in index, no children)", () => {
+		const idx = new VersionChainIndex()
+		// m2 claims version 2 and has a parentMemoryId, but that parent is not in any document.
+		// The backward walk reaches a dead end after m2 itself (parent not in memoryMap).
+		// all.length === 1 → returns null, same as a standalone v1.
+		const doc = makeDoc("d1", [
+			makeMem({
+				id: "m2",
+				version: 2,
+				parentMemoryId: "m_ghost",
+				rootMemoryId: "m_ghost",
+			}),
+		])
+		idx.rebuild([doc])
+		expect(idx.getChain("m2")).toBeNull()
+	})
+
+	it("cross-document chain: parent in doc1, child in doc2 resolves correctly", () => {
+		// rebuild() walks all documents in one pass, so parentMemoryId references
+		// are resolved across document boundaries. This mirrors production usage where
+		// chainIndex.current.rebuild(limitedDocuments) receives all documents at once.
+		const idx = new VersionChainIndex()
+		const docs = [
+			makeDoc("d1", [makeMem({ id: "m1", version: 1 })]),
+			makeDoc("d2", [
+				makeMem({
+					id: "m2",
+					parentMemoryId: "m1",
+					rootMemoryId: "m1",
+					version: 2,
+				}),
+			]),
+		]
+		idx.rebuild(docs)
+
+		// Querying from child (in d2) should walk back to parent (in d1)
+		const chainFromChild = idx.getChain("m2")
+		expect(chainFromChild).not.toBeNull()
+		expect(chainFromChild!.map((e) => e.id)).toEqual(["m1", "m2"])
+
+		// Querying from parent (in d1) should walk forward to child (in d2)
+		const chainFromParent = idx.getChain("m1")
+		expect(chainFromParent).not.toBeNull()
+		expect(chainFromParent!.map((e) => e.id)).toEqual(["m1", "m2"])
+	})
+
+	it("circular reference: both IDs present in result (order is undefined for malformed cycles)", () => {
+		// The existing circular test asserts length=2 but not membership.
+		// Circular data (m1.parent=m2, m2.parent=m1) is malformed and will never
+		// appear in production — the visited set merely guarantees termination.
+		// Order is intentionally unspecified because the backward-walk start node
+		// determines which ID appears first, which has no semantic meaning for corrupt data.
+		const idx = new VersionChainIndex()
+		const doc = makeDoc("d1", [
+			makeMem({ id: "m1", version: 1, parentMemoryId: "m2" }),
+			makeMem({ id: "m2", version: 2, parentMemoryId: "m1" }),
+		])
+		idx.rebuild([doc])
+
+		const chain = idx.getChain("m1")
+		expect(chain).not.toBeNull()
+		expect(chain!.length).toBe(2)
+		// Both nodes must appear — order is implementation-defined for cycles
+		const ids = chain!.map((e) => e.id)
+		expect(ids).toContain("m1")
+		expect(ids).toContain("m2")
+	})
+
+	it("getChain from middle node with cold cache exercises real backward+forward traversal", () => {
+		// This test deliberately queries the MIDDLE node first (cache is empty at that point)
+		// to confirm the combined backward+forward traversal is the live code path being
+		// exercised — not merely the cache fast-path from a prior call to another node.
+		const idx = new VersionChainIndex()
+		const doc = makeDoc("d1", [
+			makeMem({ id: "m1", version: 1 }),
+			makeMem({
+				id: "m2",
+				parentMemoryId: "m1",
+				rootMemoryId: "m1",
+				version: 2,
+			}),
+			makeMem({
+				id: "m3",
+				parentMemoryId: "m2",
+				rootMemoryId: "m1",
+				version: 3,
+			}),
+		])
+		idx.rebuild([doc])
+
+		// Cold cache: getChain("m2") must walk backward to m1 AND forward to m3.
+		const chain = idx.getChain("m2")
+		expect(chain).not.toBeNull()
+		expect(chain!.length).toBe(3)
+		expect(chain!.map((e) => e.id)).toEqual(["m1", "m2", "m3"])
+
+		// After the traversal, neighboring nodes must return the same cached reference —
+		// confirming that the cache-population loop ran for all three entries.
+		expect(idx.getChain("m1")).toBe(chain)
+		expect(idx.getChain("m3")).toBe(chain)
+	})
 })

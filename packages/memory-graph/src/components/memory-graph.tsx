@@ -45,6 +45,7 @@ export function MemoryGraph({
 	const containerRef = useRef<HTMLDivElement>(null)
 	const viewportRef = useRef<ViewportState | null>(null)
 	const simulationRef = useRef<ForceSimulation | null>(null)
+	const [simulation, setSimulation] = useState<ForceSimulation | null>(null)
 	const chainIndex = useRef(new VersionChainIndex())
 
 	// React state only for things that affect DOM
@@ -78,6 +79,7 @@ export function MemoryGraph({
 		if (nodes.length === 0) {
 			simulationRef.current?.destroy()
 			simulationRef.current = null
+			setSimulation(null)
 			prevSimIdsRef.current = ""
 			return
 		}
@@ -88,7 +90,9 @@ export function MemoryGraph({
 			.join(",")
 
 		if (!simulationRef.current) {
-			simulationRef.current = new ForceSimulation()
+			const sim = new ForceSimulation()
+			simulationRef.current = sim
+			setSimulation(sim)
 		}
 
 		if (idKey !== prevSimIdsRef.current) {
@@ -106,6 +110,7 @@ export function MemoryGraph({
 		return () => {
 			simulationRef.current?.destroy()
 			simulationRef.current = null
+			setSimulation(null)
 		}
 	}, [])
 
@@ -561,7 +566,7 @@ export function MemoryGraph({
 						onNodeHover={handleNodeHover}
 						onViewportChange={handleViewportChange}
 						selectedNodeId={selectedNode}
-						simulation={simulationRef.current ?? undefined}
+						simulation={simulation ?? undefined}
 						viewportRef={viewportRef}
 						width={containerSize.width}
 						canvasRef={externalCanvasRef}
